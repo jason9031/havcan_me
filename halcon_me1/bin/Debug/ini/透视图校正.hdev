@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.1" halcon_version="12.0.1">
+<procedure name="main">
+<interface/>
+<body>
+<c>******************************第一步  窗体初始化***************************************</c>
+<c>*关闭窗口</c>
+<l>dev_close_window ()</l>
+<c></c>
+<c>*关闭程序计数器,变量更新,图形更新</c>
+<l>dev_update_off ()</l>
+<c></c>
+<c>*设置区域填充方式</c>
+<l>dev_set_draw ('margin')</l>
+<c></c>
+<c>*读取一张图像</c>
+<l>read_image (Image, 'Normal.bmp')</l>
+<c></c>
+<c>*获取图像的数据地址,图像位深,图像宽,图像高</c>
+<l>get_image_pointer1 (Image, Pointer, Type, Width, Height)</l>
+<c></c>
+<c>*打开一个新窗口</c>
+<l>dev_open_window (0, 0, Width, Height, 'black', WindowHandle1)</l>
+<c></c>
+<c>*设置字体</c>
+<l>set_display_font (WindowHandle1, 14, 'mono', 'true', 'false')</l>
+<c></c>
+<c>*显示图像</c>
+<l>dev_display (Image)</l>
+<c></c>
+<c>*设置线宽</c>
+<l>dev_set_line_width (2)</l>
+<c></c>
+<c>*在右下角显示 Press  Run(F5) to continue</c>
+<l>disp_continue_message (WindowHandle1, 'black', 'true')</l>
+<c></c>
+<c>*停止程序执行</c>
+<l>stop ()</l>
+<c></c>
+<c>************************第二部  这里直接使用校正助手标定结果********************************</c>
+<c>*摄像机内参</c>
+<l>read_cam_par ('C:/Users/Administrator/Desktop/标定数据/摄像机内参.cal', CamParam)</l>
+<c></c>
+<c></c>
+<c>*摄像机外参(摄像机位姿)</c>
+<l>read_pose ('C:/Users/Administrator/Desktop/标定数据/摄像机外参.dat', PoseCalib)</l>
+<c></c>
+<c></c>
+<c></c>
+<c>************************第三步  获取图像平面和世界坐标系平面之间的映射关系****************************</c>
+<c></c>
+<c>*将位姿绕Z轴逆时针旋转180度</c>
+<l>tuple_replace (PoseCalib, 5, PoseCalib[5]-180, PoseCalibRot)</l>
+<c></c>
+<c>*调整位姿,X轴向右移动0.04，Y轴向下移动0.03，Z轴向标定板移动0.006</c>
+<l>set_origin_pose (PoseCalibRot, -0.045,-0.03, 0.006, Pose)</l>
+<c></c>
+<c>*像素当量</c>
+<l>PixelDist := 0.00005034965</l>
+<c></c>
+<c>*将3D位姿转换为齐次变换矩阵。</c>
+<l>pose_to_hom_mat3d (Pose, HomMat3D)</l>
+<c></c>
+<c>*生成图像平面与世界坐标系平面z = 0之间映射的投影图。</c>
+<l>gen_image_to_world_plane_map (Map, CamParam, Pose, Width, Height, Width, Height, PixelDist, 'bilinear')</l>
+<c></c>
+<c>************************第四步 校正图像**************************************************</c>
+<c>*读取测试图像</c>
+<l>read_image (SlantImage, 'Slant.bmp')</l>
+<c></c>
+<c>*通过映射关系,对图像进行校正</c>
+<l>map_image (SlantImage, Map, ModelImageMapped)</l>
+<c></c>
+<l>write_image (ModelImageMapped, 'bmp', 0, 'ModelImageMapped.bmp')</l>
+<c></c>
+<c></c>
+<c></c>
+<c></c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>
