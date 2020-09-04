@@ -1,7 +1,3 @@
-C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.halcon_me.resources
-C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.Properties.Resources.resources
-C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csproj.GenerateResource.cache
-C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csproj.CoreCompileInputs.cache
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\halcon_me1.exe.config
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\halcon_me1.exe
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\halcon_me1.pdb
@@ -9,7 +5,11 @@ C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\halcondotnet.dll
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\hdevenginedotnet.dll
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\halcondotnet.xml
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\bin\Debug\hdevenginedotnet.xml
+C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csprojAssemblyReference.cache
+C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.halcon_me.resources
+C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.Properties.Resources.resources
+C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csproj.GenerateResource.cache
+C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csproj.CoreCompileInputs.cache
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csproj.CopyComplete
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.exe
 C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.pdb
-C:\Users\sujie\Desktop\gitJason\havcan_me\halcon_me1\obj\Debug\halcon_me1.csprojAssemblyReference.cache
