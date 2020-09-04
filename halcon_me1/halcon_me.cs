@@ -21,6 +21,7 @@ namespace halcon_me1
         private bool AcquireImageStop = true;
         private Thread AcquireImage = null;
 
+        private const int m_textLineLimit = 200;
 
         //图像交互参数
         private int ImageWidth = 640;
@@ -64,10 +65,11 @@ namespace halcon_me1
         private HDevProcedure Procedure = null;
         private HDevProcedureCall ProcedureCall = null;
         public HDevEngine MyEngine = null;
-
+        private delegate void FlushOutPut(string msg);
         public halcon_me()
         {
             InitializeComponent();
+            CounterTMT.AppEvents.Instance.UpdateScreenEvent += LogToScreen;
             GraphInteractiveObect = new GraphInteractive();
             Program = new HDevProgram();
             Procedure = new HDevProcedure();
@@ -75,6 +77,45 @@ namespace halcon_me1
             HOperatorSet.GenEmptyObj(out ho_Image);
             HOperatorSet.GenEmptyObj(out TempImage);
         }
+        private void LogToScreen(string st)
+        {
+            if (this.DisplayLog_textBox.InvokeRequired)
+            {
+                var flush = new FlushOutPut(LogToScreen);
+                this.Invoke(flush, new object[] { st });
+            }
+            else
+            {
+                var msg = string.Format("{0}   {1}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.ff"), st);
+
+                string nowtext = string.Empty;
+                if (DisplayLog_textBox.Lines.Length >= m_textLineLimit)
+                {
+                    // DisplayLog_textBox.Lines.
+
+                    //将textbox中的文本按换行符分割bai成数组du
+                    String[] lines = DisplayLog_textBox.Lines;
+                    //把删除的行剔除, 重新组成新的字符串zhi
+                    String text = "";
+                    for (int iLcnt = 0; iLcnt < lines.Length; iLcnt++)
+                    {
+                        //假设删除最后行
+                        if (iLcnt >= (m_textLineLimit - 2))
+                        {
+                            continue;
+                        }
+                        text += lines[iLcnt] + (iLcnt == lines.Length - 1 ? "" : "\r\n"); //最后一行不添加换行符
+                    }
+                    nowtext = st + "\r\n" + text;
+                    DisplayLog_textBox.Text = nowtext;
+                }
+                else
+                {
+                    this.DisplayLog_textBox.Text.Insert(0, st + "\r\n");
+                }
+            }
+        }
+
 
         private void BtnFun1_Click(object sender, EventArgs e)
         {
@@ -108,6 +149,10 @@ namespace halcon_me1
 
             CreateGraphicInteractionWindow(ref GraphInteractiveObect, ref VideoWindow_hWindowControl, ImageWidth, ImageHeight);
 
+
+            LoadInnerCameraParameter(null, null);
+            LoadOuterCameraParameter(null, null);
+
             // 相机打开 打开一次即可 窗体打开时候加载图像
             HOperatorSet.GenEmptyObj(out ho_Image);//
 
@@ -117,25 +162,23 @@ namespace halcon_me1
 
             HOperatorSet.GrabImageStart(hv_AcqHandle, -1);
 
-            //HOperatorSet.DispObj(ho_Image, GraphInteractiveObect.halconWindow.HalconWindow);
-            //            if (File.Exists(Directory.GetCurrentDirectory() + @"/Templete.shm"))
-            //            {
-            //                HOperatorSet.ReadShapeModel(Directory.GetCurrentDirectory() + @"/Templete.shm", out hv_ModelID);
-            //            }
+            HOperatorSet.DispObj(ho_Image, GraphInteractiveObect.halconWindow.HalconWindow);
+            if (File.Exists(Directory.GetCurrentDirectory() + @"\ini\Templete.shm"))
+            {
+                HOperatorSet.ReadShapeModel(Directory.GetCurrentDirectory() + @"\ini\Templete.shm", out hv_ModelID);
+            }
 
-            //            if (File.Exists(Directory.GetCurrentDirectory() + @"/MetrologyHandle.mtr"))
-            //            {
-            //                HOperatorSet.ReadMetrologyModel(Directory.GetCurrentDirectory() + @"/MetrologyHandle.mtr", out hv_MetrologyHandle);
-            //            }
+            if (File.Exists(Directory.GetCurrentDirectory() + @"\ini\MetrologyHandle.mtr"))
+            {
+                HOperatorSet.ReadMetrologyModel(Directory.GetCurrentDirectory() + @"\ini\MetrologyHandle.mtr", out hv_MetrologyHandle);
+            }
+            LoadHalconEnginee();
 
+            System.Windows.Forms.Control.CheckForIllegalCrossThreadCalls = false;
 
-            //            LoadHalconEnginee();
-
-            //            System.Windows.Forms.Control.CheckForIllegalCrossThreadCalls = false;
-
-            //#if (NormalTest)
-            //             MotionObject.InitMotionCard();
-            //#endif
+#if (NormalTest)
+            MotionObject.InitMotionCard();
+#endif
 
 
         }
@@ -147,7 +190,7 @@ namespace halcon_me1
             string CurrentPath = Directory.GetCurrentDirectory();
             MyEngine.SetProcedurePath(CurrentPath);
 
-            string ProgramPathString = Directory.GetCurrentDirectory() + @"\CheckHdsv\CheckHdsv.hdev";
+            string ProgramPathString = Directory.GetCurrentDirectory() + @"\ini\MeasureSize.hdev";
             string ProcedureCallName = "MeasureSizeLibrary";
             Program = new HDevProgram(ProgramPathString);
             Procedure = new HDevProcedure(Program, ProcedureCallName);
@@ -240,11 +283,15 @@ namespace halcon_me1
                 HOperatorSet.DispLine(GraphInteractiveObect.halconWindow.HalconWindow, hv_RefRow - 100, hv_RefColumn, hv_RefRow + 100, hv_RefColumn);
 
                 this.ModelRow_textBox.Text = hv_RefRow.ToString();
+                this.txtRow.Text = hv_RefRow.ToString();
                 this.ModelColumn_textBox.Text = hv_RefColumn.ToString();
+                this.txtCol.Text = hv_RefColumn.ToString();
                 this.ModelAngle_textBox.Text = hv_RefAngle.ToString();
+                this.txtAngle.Text = hv_RefAngle.ToString();
 
                 HOperatorSet.SetColor(GraphInteractiveObect.halconWindow.HalconWindow, "yellow");
                 HOperatorSet.SetDraw(GraphInteractiveObect.halconWindow.HalconWindow, "margin");
+                saveImage("Pos");
                 ho_ModelContours.Dispose();
                 ho_TransContours.Dispose();
 
@@ -303,87 +350,110 @@ namespace halcon_me1
 
                 if (chkTest.Checked)
                 {
-                    ho_Image.Dispose();
-                    HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
-                    HOperatorSet.DispObj(ho_Image, GraphInteractiveObect.halconWindow.HalconWindow);
+                    try
+                    {
+                        ho_Image.Dispose();
+                        HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
+                        HOperatorSet.DispObj(ho_Image, GraphInteractiveObect.halconWindow.HalconWindow);
+                    }
+                    catch (HalconException halExp)
+                    {
+                        string strLogToScreen = halExp.ToString();
+                        UpdateLogMessage(strLogToScreen);
+                    }
                 }
-                else if (this.CalirationImage_checkBox.Checked)
+                //2.对抓取的图像进行校正
+               else  if (this.CalirationImage_checkBox1.Checked)
                 {
-                    //2.对抓取的图像进行校正
+
                     ho_Image.Dispose();
                     HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
                     TempImage = CalibrationImage(ho_Image);
                     HOperatorSet.DispObj(TempImage, GraphInteractiveObect.halconWindow.HalconWindow);
-                }
-                else if (this.ProductLocation_checkBox.Checked)
-                {
+
                     //3.视觉定位
-                    ho_Image.Dispose();
-                    HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
-                    SearchObject(hv_ModelID, TempImage);
-                    HOperatorSet.DispObj(TempImage, GraphInteractiveObect.halconWindow.HalconWindow);
+                    if (this.ProductLocation_checkBox.Checked)
+                    {
+                        //3.视觉定位
+                        ho_Image.Dispose();
+                        HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
+                        SearchObject(hv_ModelID, TempImage);
+                        HOperatorSet.DispObj(TempImage, GraphInteractiveObect.halconWindow.HalconWindow);
 
-                }
-                else if (ProductSignal == 1 && (!TestState))
-                {
-                    ho_Image.Dispose();
-                    HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
-                    TestState = true;
-                    ProductSignal = 0;
-
+                    }
 
                     //4.调用算法进行测试
-                    HTuple hv_TempleteRow = double.Parse(this.ModelRow_textBox.Text);
-                    HTuple hv_TempleteColumn = double.Parse(this.ModelColumn_textBox.Text);
-                    HTuple hv_TempleteAngle = double.Parse(this.ModelAngle_textBox.Text);
-
-
-                    HObject ho_MeasureRegion;
-                    HOperatorSet.GenEmptyObj(out ho_MeasureRegion);
-
-                    HTuple Distance = null;
-                    HTuple MeasureDown = double.Parse(this.MeasuretextDown_TextBox.Text);
-                    HTuple MeasureTop = double.Parse(this.MeasuretextTop_TextBox.Text);
-                    string Result = MeasureAlgorithm(TempImage, MeasureDown, MeasureTop, hv_MetrologyHandle, hv_TempleteRow, hv_TempleteColumn, hv_TempleteAngle, out Distance, out ho_MeasureRegion);
-
-                    HOperatorSet.SetColor(GraphInteractiveObect.halconWindow.HalconWindow, "red");
-                    HOperatorSet.SetDraw(GraphInteractiveObect.halconWindow.HalconWindow, "margin");
-                    HOperatorSet.DispObj(TempImage, GraphInteractiveObect.halconWindow.HalconWindow);
-                    HOperatorSet.DispObj(ho_MeasureRegion, GraphInteractiveObect.halconWindow.HalconWindow);
-
-
-                    if (Result == "PASS")
+                    if (ProductSignal == 1 && (!TestState))
                     {
-                        this.DisplayResult_label.Text = "合格";
-                        this.DisplayResult_label.ForeColor = Color.Green;
-                        this.Distance_textBox.Text = Distance.ToString();
-                        this.Distance_label.Text = Distance.ToString();
+                        ho_Image.Dispose();
+                        HOperatorSet.GrabImageAsync(out ho_Image, hv_AcqHandle, -1);
+                        TestState = true;
+                        ProductSignal = 0;
+
+
+                        //4.调用算法进行测试
+                        //HTuple hv_TempleteRow = double.Parse(this.ModelRow_textBox.Text);
+                        //HTuple hv_TempleteColumn = double.Parse(this.ModelColumn_textBox.Text);
+                        //HTuple hv_TempleteAngle = double.Parse(this.ModelAngle_textBox.Text);
+                        HTuple hv_TempleteRow = double.Parse(this.txtRow.Text);
+                        HTuple hv_TempleteColumn = double.Parse(this.txtCol.Text);
+                        HTuple hv_TempleteAngle = double.Parse(this.txtAngle.Text);
+
+
+                        HObject ho_MeasureRegion;
+                        HOperatorSet.GenEmptyObj(out ho_MeasureRegion);
+
+                        HTuple Distance = null;
+                        HTuple MeasureDown = double.Parse(this.txtLow.Text);
+                        HTuple MeasureTop = double.Parse(this.txtUpper.Text);
+                        string Result = MeasureAlgorithm(TempImage, MeasureDown, MeasureTop, hv_MetrologyHandle, hv_TempleteRow, hv_TempleteColumn, hv_TempleteAngle, out Distance, out ho_MeasureRegion);
+
+                        HOperatorSet.SetColor(GraphInteractiveObect.halconWindow.HalconWindow, "red");
+                        HOperatorSet.SetDraw(GraphInteractiveObect.halconWindow.HalconWindow, "margin");
+                        HOperatorSet.DispObj(TempImage, GraphInteractiveObect.halconWindow.HalconWindow);
+                        HOperatorSet.DispObj(ho_MeasureRegion, GraphInteractiveObect.halconWindow.HalconWindow);
+
+
+                        if (Result == "PASS")
+                        {
+                            this.DisplayResult_label.Text = "合格";
+                            this.DisplayResult_label.ForeColor = Color.Green;
+                            this.Distance_textBox.Text = Distance.ToString();
+                            this.Distance_textBox2.Text = Distance.ToString();
+                            this.Distance_label.Text = Distance.ToString();
 #if (NormalTest)
                             MotionObject.WriteOutputByPort(4,1);
 #endif
-                    }
-                    if (Result == "NG")
-                    {
-                        this.DisplayResult_label.Text = "不合格";
-                        this.DisplayResult_label.ForeColor = Color.Red;
-                        this.Distance_textBox.Text = Distance.ToString();
-                        this.Distance_label.Text = Distance.ToString();
+                        }
+                        if (Result == "NG")
+                        {
+                            this.DisplayResult_label.Text = "不合格";
+                            this.DisplayResult_label.ForeColor = Color.Red;
+                            this.Distance_textBox.Text = Distance.ToString();
+                            this.Distance_textBox2.Text = Distance.ToString();
+                            this.Distance_label.Text = Distance.ToString();
 #if (NormalTest)
                             MotionObject.WriteOutputByPort(2, 1);//吹气
                             MotionObject.WriteOutputByPort(3, 1);//NG指示灯
 #endif
+                        }
+
+                        ho_MeasureRegion.Dispose();
+
+                        TestState = false;
                     }
-
-                    ho_MeasureRegion.Dispose();
-
-                    TestState = false;
                 }
+
             }
         }
         /// <summary>
         /// 加载测量算法
         /// </summary>
-        private string MeasureAlgorithm(HObject RawImage, HTuple Parameter1, HTuple Parameter2, HTuple hv_MetrologyHandle, HTuple hv_ModelRow, HTuple hv_ModelColumn, HTuple hv_ModelAngle, out HTuple Distance, out HObject ho_MeasureRegion)
+        private string MeasureAlgorithm(
+            HObject RawImage, HTuple Parameter1, HTuple Parameter2,
+            HTuple hv_MetrologyHandle, HTuple hv_ModelRow,
+            HTuple hv_ModelColumn, HTuple hv_ModelAngle,
+            out HTuple Distance, out HObject ho_MeasureRegion)
         {
             try
             {
@@ -419,7 +489,9 @@ namespace halcon_me1
 
             ho_MeasureRegion = ProcedureCall.GetOutputIconicParamObject("MeasureRegion");     //获取测量区域
 
-            Distance = double.Parse(this.PixelDangLiang_textBox.Text) * Distance * 1000;
+            //Distance = double.Parse(this.PixelDangLiang_textBox.Text) * Distance * 1000;
+
+            Distance = double.Parse(this.txtP.Text) * Distance * 1000;
 
             string Result = null;
             if (Distance >= Parameter1 && Distance <= Parameter2)
@@ -523,9 +595,12 @@ namespace halcon_me1
 
                 //* 设置测量对象的参考坐标系原点在模板坐标位置
                 HTuple hv_TempleteRow = null, hv_TempleteColumn = null, hv_TempleteAngle = null;
-                hv_TempleteRow = double.Parse(this.ModelRow_textBox.Text);
-                hv_TempleteColumn = double.Parse(this.ModelColumn_textBox.Text);
-                hv_TempleteAngle = double.Parse(this.ModelAngle_textBox.Text);
+                //hv_TempleteRow = double.Parse(this.ModelRow_textBox.Text);
+                //hv_TempleteColumn = double.Parse(this.ModelColumn_textBox.Text);
+                //hv_TempleteAngle = double.Parse(this.ModelAngle_textBox.Text);
+                hv_TempleteRow = double.Parse(this.txtRow.Text);
+                hv_TempleteColumn = double.Parse(this.txtCol.Text);
+                hv_TempleteAngle = double.Parse(this.txtAngle.Text);
 
                 HOperatorSet.SetMetrologyModelParam(hv_MetrologyHandle, "reference_system", ((hv_TempleteRow.TupleConcat(hv_TempleteColumn))).TupleConcat(hv_TempleteAngle));
 
@@ -551,11 +626,13 @@ namespace halcon_me1
                 HTuple hv_TempleteColumn = null;
                 HTuple hv_TempleteAngle = null;
 
-                hv_TempleteRow = double.Parse(this.ModelRow_textBox.Text);
-                hv_TempleteColumn = double.Parse(this.ModelColumn_textBox.Text);
-                hv_TempleteAngle = double.Parse(this.ModelAngle_textBox.Text);
+                //hv_TempleteRow = double.Parse(this.ModelRow_textBox.Text);
+                //hv_TempleteColumn = double.Parse(this.ModelColumn_textBox.Text);
+                //hv_TempleteAngle = double.Parse(this.ModelAngle_textBox.Text);
 
-
+                hv_TempleteRow = double.Parse(this.txtRow.Text);
+                hv_TempleteColumn = double.Parse(this.txtCol.Text);
+                hv_TempleteAngle = double.Parse(this.txtAngle.Text);
 
                 if (File.Exists(Directory.GetCurrentDirectory() + @"/MetrologyHandle.mtr"))
                 {
@@ -572,19 +649,21 @@ namespace halcon_me1
                 HOperatorSet.GenEmptyObj(out ho_MeasureRegion);
 
                 HTuple Distance = null;
-                string Result = MeasureAlgorithm(ho_Image, double.Parse(this.MeasuretextDown_TextBox.Text), double.Parse(this.MeasuretextTop_TextBox.Text), hv_MetrologyHandle, hv_TempleteRow, hv_TempleteColumn, hv_TempleteAngle, out Distance, out ho_MeasureRegion);
+                string Result = MeasureAlgorithm(ho_Image, double.Parse(this.txtLow.Text), double.Parse(this.txtUpper.Text), hv_MetrologyHandle, hv_TempleteRow, hv_TempleteColumn, hv_TempleteAngle, out Distance, out ho_MeasureRegion);
 
                 HOperatorSet.SetColor(GraphInteractiveObect.halconWindow.HalconWindow, "red");
                 HOperatorSet.SetDraw(GraphInteractiveObect.halconWindow.HalconWindow, "margin");
                 HOperatorSet.DispObj(ho_Image, GraphInteractiveObect.halconWindow.HalconWindow);
                 HOperatorSet.DispObj(ho_MeasureRegion, GraphInteractiveObect.halconWindow.HalconWindow);
 
+                saveImage("Pos"+ Result);
 
                 if (Result == "PASS")
                 {
                     this.DisplayResult_label.Text = "合格";
                     this.DisplayResult_label.ForeColor = Color.Green;
                     this.Distance_textBox.Text = Distance.ToString();
+                    this.Distance_textBox2.Text = Distance.ToString();
                     this.Distance_label.Text = Distance.ToString();
                 }
                 if (Result == "NG")
@@ -592,6 +671,7 @@ namespace halcon_me1
                     this.DisplayResult_label.Text = "不合格";
                     this.DisplayResult_label.ForeColor = Color.Red;
                     this.Distance_textBox.Text = Distance.ToString();
+                    this.Distance_textBox2.Text = Distance.ToString();
                     this.Distance_label.Text = Distance.ToString();
                 }
 
@@ -640,7 +720,9 @@ namespace halcon_me1
                     AcquireImage.Priority = ThreadPriority.Normal;
                     AcquireImage.Start();
                 }
-                UpdateLogMessage("开始采集图像\n");
+                string strLogToScreen = "开始采集图像\n";
+                UpdateLogMessage(strLogToScreen);
+                //CounterTMT.AppEvents.Instance.OnUpdateScreenRun(strLogToScreen);
             }
             else if (this.StartTest_button.Text == "Stop")
             {
@@ -654,13 +736,18 @@ namespace halcon_me1
                 this.StartTest_button.BackColor = Color.Blue;
 
                 AcquireImageStop = true;
-                UpdateLogMessage("停止采集图像\n");
+                string strLogToScreen = "停止采集图像\n";
+                UpdateLogMessage(strLogToScreen);
+                //CounterTMT.AppEvents.Instance.OnUpdateScreenRun(strLogToScreen);
 
             }
 
         }
         private void ExitApp(object sender, EventArgs e)
         {
+            if (this.StartTest_button.Text == "Start")
+                StartTest(null, null);
+            Thread.Sleep(2000);
             IO_ThreadStop = false;
             AcquireImageStop = false;
             Thread.Sleep(2000);
@@ -684,7 +771,8 @@ namespace halcon_me1
         private void UpdateLogMessage(string Content)
         {
             string TotalLogContent = DateTime.Now.ToString("yyyy年MM月dd日HH时mm分ss秒   ") + Content;
-            this.DisplayLog_textBox.AppendText(TotalLogContent);
+            //this.DisplayLog_textBox.AppendText(TotalLogContent);
+            CounterTMT.AppEvents.Instance.OnUpdateScreenRun(TotalLogContent);
 
         }
 
@@ -713,10 +801,20 @@ namespace halcon_me1
 
 
             //调整位姿,X轴向左移动0.04，Y轴向上移动0.03，Z轴向标定板移动0.006
-            HOperatorSet.SetOriginPose(hv_PoseCalibRot, double.Parse(this.OffsetX_textBox.Text), double.Parse(this.OffsetY_textBox.Text), double.Parse(this.OffsetZ_textBox.Text), out hv_Pose);
+            //HOperatorSet.SetOriginPose(hv_PoseCalibRot,
+            //    double.Parse(this.OffsetX_textBox.Text),
+            //    double.Parse(this.OffsetY_textBox.Text),
+            //    double.Parse(this.OffsetZ_textBox.Text), out hv_Pose);
+
+            HOperatorSet.SetOriginPose(hv_PoseCalibRot,
+                                         double.Parse(this.txtX.Text),
+                                         double.Parse(this.txtY.Text),
+                                         double.Parse(this.txtZ.Text), out hv_Pose);
 
             //像素当量
-            hv_PixelDist = double.Parse(this.PixelDangLiang_textBox.Text);
+            //hv_PixelDist = double.Parse(this.PixelDangLiang_textBox.Text);
+
+            hv_PixelDist = double.Parse(this.txtP.Text);
 
 
             //将3D位姿转换为齐次变换矩阵。
@@ -740,29 +838,100 @@ namespace halcon_me1
         }
         private void LoadInnerCameraParameter(object sender, EventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "Excel文件(*.xls;*.xlsx)|*.xls;*.xlsx|所有文件|*.*";
-            ofd.ValidateNames = true;
-            ofd.CheckPathExists = true;
-            ofd.CheckFileExists = true;
-            if (ofd.ShowDialog() == DialogResult.OK)
+            string path = Directory.GetCurrentDirectory() + @"\ini\";
+            if (!Directory.Exists(path) || !File.Exists(path + @"caltab.ps"))
             {
-                CameraInnerParameterFile = ofd.FileName;
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.Filter = "Excel文件(*.xls;*.xlsx)|*.xls;*.xlsx|所有文件|*.*";
+                ofd.ValidateNames = true;
+                ofd.CheckPathExists = true;
+                ofd.CheckFileExists = true;
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    CameraInnerParameterFile = ofd.FileName;
+                    this.CameraInnerParameterFile_label.Text = CameraInnerParameterFile;
+                }
+            }
+            else
+            {
+                CameraInnerParameterFile = path + @"inner.cal";
                 this.CameraInnerParameterFile_label.Text = CameraInnerParameterFile;
             }
         }
 
         private void LoadOuterCameraParameter(object sender, EventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "Excel文件(*.xls;*.xlsx)|*.xls;*.xlsx|所有文件|*.*";
-            ofd.ValidateNames = true;
-            ofd.CheckPathExists = true;
-            ofd.CheckFileExists = true;
-            if (ofd.ShowDialog() == DialogResult.OK)
+            string path = Directory.GetCurrentDirectory() + @"\ini\";
+            if (!Directory.Exists(path) || !File.Exists(path + @"caltab.ps"))
             {
-                CameraOuterParameterFile = ofd.FileName;
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.Filter = "Excel文件(*.xls;*.xlsx)|*.xls;*.xlsx|所有文件|*.*";
+                ofd.ValidateNames = true;
+                ofd.CheckPathExists = true;
+                ofd.CheckFileExists = true;
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    CameraOuterParameterFile = ofd.FileName;
+                    this.CameraOuterParameterFile_label.Text = CameraOuterParameterFile;
+                }
+            }
+            else
+            {
+                CameraOuterParameterFile = path + @"outter.dat";
                 this.CameraOuterParameterFile_label.Text = CameraOuterParameterFile;
+            }
+        }
+
+        private void BtnFun2_Click(object sender, EventArgs e)
+        {
+            ProductSignal = 1;
+        }
+
+        private void CalirationImage_checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void OfflineLocation(object sender, EventArgs e)
+        {
+            SearchObject(hv_ModelID, ho_Image);
+        }
+
+        private void BtnRead_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void BtnSaveImage_Click(object sender, EventArgs e)
+        {
+
+            saveImage("Now");
+        }
+        private void saveImage(string ImageType)
+        {
+            try
+            {
+                //HOperatorSet.SetWindowExtents(m_WindowHandle2, 0, 0, m_imgWidth, m_imgHeight);
+                //HOperatorSet.SetPart(m_WindowHandle2, 0, 0, m_imgHeight - 1, m_imgWidth - 1);
+                //set_display_font(m_WindowHandle2, 20, "mono", "true", "false");
+                //HOperatorSet.DispObj(m_Image, m_WindowHandle2);
+                //HOperatorSet.disp_message(m_WindowHandle2, "2018-08-31 20:30:45", "window", 12, 12, "green", "false");
+                //HOperatorSet.DumpWindow(GraphInteractiveObect.halconWindow.HalconWindow, "jpg", Directory.GetCurrentDirectory() + @"\" + DateTime.Now.ToString("yyyyMMddHHmmssff") + ".jpg");
+
+                HObject Image = null;
+                // SveFilNew.OverwritePrompt = true;
+                HOperatorSet.DumpWindowImage(out Image, GraphInteractiveObect.halconWindow.HalconWindow);
+                string folderpath = Directory.GetCurrentDirectory() + @"\"+ ImageType + @"\";
+                if (!Directory.Exists(folderpath))
+                {
+                    Directory.CreateDirectory(folderpath);
+                }
+                string filepath = folderpath + @"\" + DateTime.Now.ToString("yyyyMMddHHmmssff") + ".jpg";
+                HOperatorSet.WriteImage(Image, "jpg", 0, folderpath);
+            }
+            catch (HalconException HDevExpDefaultException)
+            {
+                throw HDevExpDefaultException;
             }
         }
     }

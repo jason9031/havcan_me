@@ -56,6 +56,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AppEvents.cs" />
+    <Compile Include="Enum.cs" />
     <Compile Include="other\Demo7.cs" />
     <Compile Include="GraphInteractive.cs">
       <SubType>Form</SubType>
